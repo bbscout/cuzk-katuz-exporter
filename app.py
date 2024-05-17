@@ -86,6 +86,7 @@ if len(cisla_ku) > 0:
 
     for cislo_ku in cisla_ku:
         gpd_kn = get_n_merge_kn(cislo_ku)
+        gpd_kn.to_crs(pyproj.CRS.from_epsg(5514))
         gpd_kn_list.append(gpd_kn)
 
         #update progressbar
@@ -95,6 +96,11 @@ if len(cisla_ku) > 0:
         
 
     with st.spinner('Připravuji data...'):
+
+        # Before merging, ensure all GeoDataFrames have the same CRS
+        for gdf in gpd_kn_list:
+            gdf.to_crs(pyproj.CRS.from_epsg(5514), inplace=True)
+
         kn_merge_all = gpd.GeoDataFrame(pd.concat(gpd_kn_list, ignore_index=True))
         kn_proj = kn_merge_all.to_crs(pyproj.CRS.from_epsg(4326))
 
