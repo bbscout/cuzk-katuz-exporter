@@ -17,7 +17,7 @@ st.title('Export a zobrazení dat katastrálních území')
 # Stažení číselníku obcí
 @st.cache_data
 def list_katuz():
-    kat_uz_list = gpd.read_file("zip+https://www.cuzk.cz/CUZK/media/CiselnikyISKN/SC_SEZNAMKUKRA_DOTAZ/SC_SEZNAMKUKRA_DOTAZ.zip?ext=.zip",encoding='cp1250')
+    kat_uz_list = gpd.read_file("zip+https://services.cuzk.cz/sestavy/cis/SC_SEZNAMKUKRA_DOTAZ.zip",encoding='cp1250')
     kat_uz_list['SELECTION_NAME'] = kat_uz_list['OBEC_NAZEV'] + " (" + kat_uz_list['OBEC_KOD'] + ")"
     return kat_uz_list
 
