@@ -27,7 +27,7 @@ def get_n_merge_kn(cislo_ku):
     defpoints = gpd.read_file(f"zip+https://services.cuzk.cz/shp/ku/epsg-5514/{cislo_ku}.zip!{cislo_ku}/PARCELY_KN_DEF.shp")
     deftable = defpoints.drop(columns='geometry')
     kn_merge = kn.merge(deftable, on='ID_2')
-    drupoz = gpd.read_file(f"zip+https://cuzk.cz/CUZK/media/CiselnikyISKN/SC_D_POZEMKU/SC_D_POZEMKU.zip",encoding='cp1250').drop(columns='geometry')
+    drupoz = gpd.read_file(f"https://services.cuzk.cz/sestavy/cis/SC_D_POZEMKU.zip",encoding='cp1250').drop(columns='geometry')
     drupoz = drupoz[['KOD','NAZEV','ZKRATKA']]
     drupoz['KOD'] = drupoz['KOD'].astype(str).astype(int)
     drupoz = drupoz.rename(columns={"KOD": "DRUPOZ_KOD", "NAZEV": "DRUPOZ_NAZEV", "ZKRATKA": "DRUPOZ_ZKRATKA"})
