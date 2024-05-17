@@ -1,3 +1,4 @@
+### IMPORT LIBRARIES ###
 import pandas as pd
 import geopandas as gpd
 import matplotlib.colors as mcolors
@@ -9,63 +10,120 @@ import folium
 from folium.plugins import Fullscreen
 import io
 
-st.title('Export a zobrazení dat katastrálních území')
-'''Aplikace stahuje data přímo z ČÚZK (https://services.cuzk.cz/shp/ku) s týdenní aktualizací. Stažení a zpracování dat chvilku trvá.'''
+### FUNCTION DEFINITIONS ###
 
-### DEFINICE FUNKCÍ ###
-
-# Stažení číselníku obcí
-@st.cache_data
+# Download the Directory of Municipalities (DoM)
+@st.cache_data # Cache the data to avoid reruning the download
 def list_katuz():
+    # Read the zipped DoM file using Geopandas
     kat_uz_list = gpd.read_file("zip+https://www.cuzk.cz/CUZK/media/CiselnikyISKN/SC_SEZNAMKUKRA_DOTAZ/SC_SEZNAMKUKRA_DOTAZ.zip?ext=.zip",encoding='cp1250')
+
+    # Add field to dataframe with formated to "Municipality name (municipality code)"
     kat_uz_list['SELECTION_NAME'] = kat_uz_list['OBEC_NAZEV'] + " (" + kat_uz_list['OBEC_KOD'] + ")"
+
     return kat_uz_list
 
-# Stažení a spojení dat do jednoho dataframeu
-def get_n_merge_kn(cislo_ku):
-    kn = gpd.read_file(f"zip+https://services.cuzk.cz/shp/ku/epsg-5514/{cislo_ku}.zip!{cislo_ku}/PARCELY_KN_P.shp")
-    defpoints = gpd.read_file(f"zip+https://services.cuzk.cz/shp/ku/epsg-5514/{cislo_ku}.zip!{cislo_ku}/PARCELY_KN_DEF.shp")
-    deftable = defpoints.drop(columns='geometry')
-    kn_merge = kn.merge(deftable, on='ID_2')
+# Download the Directory of DRUPOZ (type of land)
+@st.cache_data # Cache the data to avoid reruning the download
+def get_drupoz_directory():
+    # Read the zipped DRUPOZ directory file using Geopandas
     drupoz = gpd.read_file(f"zip+https://cuzk.cz/CUZK/media/CiselnikyISKN/SC_D_POZEMKU/SC_D_POZEMKU.zip",encoding='cp1250').drop(columns='geometry')
+
+    # Use only necessary columns - code, name, abbreviation
     drupoz = drupoz[['KOD','NAZEV','ZKRATKA']]
+
+    # Change the code column to type integr
     drupoz['KOD'] = drupoz['KOD'].astype(str).astype(int)
+
+    # Rename the columns
     drupoz = drupoz.rename(columns={"KOD": "DRUPOZ_KOD", "NAZEV": "DRUPOZ_NAZEV", "ZKRATKA": "DRUPOZ_ZKRATKA"})
-    kn_merge_drupoz = kn_merge.merge(drupoz, on='DRUPOZ_KOD')
+
+    return drupoz
+
+# Download the Directory of ZPVYPA (type of landuse)
+@st.cache_data # Cache the data to avoid reruning the download
+def get_zpvyuz_directory():
+    # Read the zipped ZPVYPA directory file using Geopandas
     zpvyuz = gpd.read_file(f"zip+https://cuzk.cz/CUZK/media/CiselnikyISKN/SC_ZP_VYUZITI_POZ/SC_ZP_VYUZITI_POZ.zip",encoding='cp1250').drop(columns='geometry')
+
+    # Use only necessary columns - code, name, abbreviation
     zpvyuz = zpvyuz[['KOD','NAZEV','ZKRATKA']]
+
+    # Change the code column to type integr
     zpvyuz['KOD'] = zpvyuz['KOD'].astype(str).astype(int)
+
+    # Rename the columns
     zpvyuz = zpvyuz.rename(columns={"KOD": "ZPVYPA_KOD", "NAZEV": "ZPVYPA_NAZEV", "ZKRATKA": "ZPVYPA_ZKRATKA"})
+
+    return zpvyuz
+
+# Download and merge data into one dataframe
+@st.cache_data # Cache the data to avoid reruning the download of same cadastral units
+def get_n_merge_kn(cislo_ku):
+    # Download shapefile with cadastral parcels for specified cadastral unit
+    kn = gpd.read_file(f"zip+https://services.cuzk.cz/shp/ku/epsg-5514/{cislo_ku}.zip!{cislo_ku}/PARCELY_KN_P.shp")
+
+    # Download shapefile with defpoints (details for each land parcel)
+    defpoints = gpd.read_file(f"zip+https://services.cuzk.cz/shp/ku/epsg-5514/{cislo_ku}.zip!{cislo_ku}/PARCELY_KN_DEF.shp")
+
+    # Remove the geometry column ()
+    deftable = defpoints.drop(columns='geometry')
+
+    # Merge parcel data with its defpoints based on ID_2 column (unique for each land parcel)
+    kn_merge = kn.merge(deftable, on='ID_2')
+
+    # Get the dataframe with coded values of DRUPOZ
+    drupoz = get_drupoz_directory()
+
+    # Merge the coded values with named DRUPOZ categories
+    kn_merge_drupoz = kn_merge.merge(drupoz, on='DRUPOZ_KOD')
+
+    # Get the dataframe with coded values od ZPVYPA
+    zpvyuz = get_zpvyuz_directory()
+
+    # Merge the coded values with named ZPVYPA categories
     kn_merge_all = kn_merge_drupoz.merge(zpvyuz, on='ZPVYPA_KOD',how='left')
     return kn_merge_all
 
-kat_uz_list = list_katuz()
+### WEBSITE HEADER ###
+
+# Heading
+st.title('Export a zobrazení dat katastrálních území')
+
+# Description of the website
+'''Aplikace stahuje data přímo z ČÚZK (https://services.cuzk.cz/shp/ku) s týdenní aktualizací. Stažení a zpracování dat chvilku trvá.'''
+
+
+### SECTION 1 - Select municipalities and cadastral units ###
+
+# Subheading
 st.subheader('Seznam katastrálních území')
 
-### VÝBĚR OBCE KATASTRÁLNÍHO ÚZEMÍ ###
+# Get list of cadastral units from ČUZK
+kat_uz_list = list_katuz()
 
-#Layout tlačítek
+# Two column layout for select inputs
 col1, col2 = st.columns(2)
 
-# create a multiselect widget for selecting municipalities
+# Create a multiselect widget for selecting municipalities
 selected_municipalities = col1.multiselect(
     "Vyberte jednu nebo více obcí",
     sorted(kat_uz_list["SELECTION_NAME"].unique()),
     help = "Zadejte název nebo číslo obce")
 
-# filter the DataFrame to show only the rows corresponding to the selected municipalities
+# Filter the DataFrame to show only the rows corresponding to the selected municipalities
 filtered_data = kat_uz_list[kat_uz_list["SELECTION_NAME"].isin(selected_municipalities)]
 
-# create a multiselect widget for selecting cadastral units within the selected municipalities
+# Create a multiselect widget for selecting cadastral units within the selected municipalities
 selected_cadastral_units = col2.multiselect(
     "Vyber jedno nebo více katastrálních území",
     filtered_data["KU_NAZEV"].unique())
 
+### SECTION 2
+
 options = {"Obrysy parcel":"OBEC_KOD", "Druh pozemku":"DRUPOZ_NAZEV", "Způsob využití pozemku":"ZPVYPA_NAZEV"}
 
 sel_option = st.radio("Zobrazit", options.keys(), horizontal=True)
-
-###
 
 # filter the DataFrame to show only the rows corresponding to the selected cadastral units
 filtered_data = filtered_data[filtered_data["KU_NAZEV"].isin(selected_cadastral_units)]
@@ -92,12 +150,11 @@ if len(cisla_ku) > 0:
         percent_complete += step
         my_bar.progress(percent_complete, text=progress_text)
 
+    kn_merge_all = gpd.GeoDataFrame(pd.concat(gpd_kn_list, ignore_index=True))     
+    kn_proj = kn_merge_all.to_crs(pyproj.CRS.from_epsg(4326))
+
+    with st.spinner('Kreslím mapu...'):
         
-
-    with st.spinner('Připravuji data...'):
-        kn_merge_all = gpd.GeoDataFrame(pd.concat(gpd_kn_list, ignore_index=True))
-        kn_proj = kn_merge_all.to_crs(pyproj.CRS.from_epsg(4326))
-
         # Define a colormap based on the unique categories in the "DRUPOZ_NAZEV" column
         kn_proj['ZPVYPA_NAZEV'].fillna('bez uvedení',inplace=True)
 
@@ -105,9 +162,8 @@ if len(cisla_ku) > 0:
         cmap = plt.get_cmap('tab20', len(categories))
         colors = [mcolors.rgb2hex(cmap(i)) for i in range(len(categories))]
 
-    with st.spinner('Kreslím mapu...'):
         # Create a map using Folium
-        m = folium.Map(location=[kn_proj.geometry.centroid.y.mean(), kn_proj.geometry.centroid.x.mean()], zoom_start=15)
+        m = folium.Map(location=[kn_proj.geometry.centroid.y.mean(), kn_proj.geometry.centroid.x.mean()], zoomSnap=0.1)
     
         for i, category in enumerate(categories):
             color = colors[i]
@@ -125,7 +181,12 @@ if len(cisla_ku) > 0:
         
         #Add fullscreen option to the map
         Fullscreen().add_to(m)
+        
+        #Fit map bounds
+        m.fit_bounds(m.get_bounds())
+        
         st.subheader('Katastrální mapa vybraných území')
+
         # call to render Folium map in Streamlit
         folium_static(m)
 
