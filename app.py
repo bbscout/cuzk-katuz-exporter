@@ -32,7 +32,7 @@ def get_n_merge_kn(cislo_ku):
     drupoz['KOD'] = drupoz['KOD'].astype(str).astype(int)
     drupoz = drupoz.rename(columns={"KOD": "DRUPOZ_KOD", "NAZEV": "DRUPOZ_NAZEV", "ZKRATKA": "DRUPOZ_ZKRATKA"})
     kn_merge_drupoz = kn_merge.merge(drupoz, on='DRUPOZ_KOD')
-    zpvyuz = gpd.read_file(f"zip+https://cuzk.cz/CUZK/media/CiselnikyISKN/SC_ZP_VYUZITI_POZ/SC_ZP_VYUZITI_POZ.zip",encoding='cp1250').drop(columns='geometry')
+    zpvyuz = gpd.read_file(f"zip+https://services.cuzk.cz/sestavy/cis/SC_ZP_VYUZITI_POZ.zip",encoding='cp1250').drop(columns='geometry')
     zpvyuz = zpvyuz[['KOD','NAZEV','ZKRATKA']]
     zpvyuz['KOD'] = zpvyuz['KOD'].astype(str).astype(int)
     zpvyuz = zpvyuz.rename(columns={"KOD": "ZPVYPA_KOD", "NAZEV": "ZPVYPA_NAZEV", "ZKRATKA": "ZPVYPA_ZKRATKA"})
